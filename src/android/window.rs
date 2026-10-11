@@ -1041,7 +1041,7 @@ impl AndroidWindow {
     /// Returns GPU specs from the renderer, if available.
     pub fn gpu_specs(&self) -> Option<GpuSpecs> {
         let state = self.state.lock();
-        state.renderer.as_ref().map(|r| r.gpu_specs())
+        state.renderer.as_ref().and_then(|r| r.gpu_specs())
     }
 
     /// Whether the window is currently active / visible.
@@ -1839,14 +1839,14 @@ impl FallbackAtlas {
 impl PlatformAtlas for FallbackAtlas {
     fn get_or_insert_with<'a>(
         &self,
-        key: &AtlasKey,
+        key: AtlasKey,
         build: &mut dyn FnMut() -> anyhow::Result<
             Option<(gpui::Size<gpui::DevicePixels>, std::borrow::Cow<'a, [u8]>)>,
         >,
     ) -> anyhow::Result<Option<AtlasTile>> {
         let mut state = self.state.lock();
 
-        if let Some(tile) = state.tiles.get(key) {
+        if let Some(tile) = state.tiles.get(&key) {
             return Ok(Some(tile.clone()));
         }
 
@@ -1868,7 +1868,7 @@ impl PlatformAtlas for FallbackAtlas {
                 },
             };
 
-            state.tiles.insert(key.clone(), tile.clone());
+            state.tiles.insert(key, tile.clone());
             Ok(Some(tile))
         } else {
             Ok(None)

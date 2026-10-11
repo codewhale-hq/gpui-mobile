@@ -1097,9 +1097,11 @@ impl Platform for AndroidPlatform {
     }
 
     fn open_url(&self, url: &str) {
-        // A full implementation would call startActivity with an ACTION_VIEW
-        // Intent via JNI.  For now, log the request.
-        log::info!("AndroidPlatform::open_url({url}) — Intent launch not yet implemented");
+        match super::jni::launch_view_intent(url) {
+            Ok(true) => {}
+            Ok(false) => log::warn!("AndroidPlatform::open_url: no app took {url}"),
+            Err(error) => log::error!("AndroidPlatform::open_url({url}) failed: {error}"),
+        }
     }
 
     fn on_open_urls(&self, callback: Box<dyn FnMut(Vec<String>)>) {

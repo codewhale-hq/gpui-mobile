@@ -551,22 +551,31 @@ impl AndroidPlatform {
     /// Deliver URLs from an implicit or explicit intent.
     pub fn deliver_open_urls(&self, urls: Vec<String>) {
         log::debug!("AndroidPlatform: delivering {} URL(s)", urls.len());
-        if let Some(cb) = self.state.lock().open_urls_callback.as_mut() {
-            cb(urls);
+        let callback = self.state.lock().open_urls_callback.take();
+        if let Some(mut callback) = callback {
+            callback(urls);
+            self.state.lock().open_urls_callback.get_or_insert(callback);
         }
     }
 
     /// Notify the platform that the keyboard layout has changed.
     pub fn notify_keyboard_layout_change(&self) {
-        if let Some(cb) = self.state.lock().keyboard_layout_callback.as_mut() {
-            cb();
+        let callback = self.state.lock().keyboard_layout_callback.take();
+        if let Some(mut callback) = callback {
+            callback();
+            self.state
+                .lock()
+                .keyboard_layout_callback
+                .get_or_insert(callback);
         }
     }
 
     /// Deliver a "reopen" event (app tapped in recents while already running).
     pub fn deliver_reopen(&self) {
-        if let Some(cb) = self.state.lock().reopen_callback.as_mut() {
-            cb();
+        let callback = self.state.lock().reopen_callback.take();
+        if let Some(mut callback) = callback {
+            callback();
+            self.state.lock().reopen_callback.get_or_insert(callback);
         }
     }
 

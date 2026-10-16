@@ -71,7 +71,8 @@ static COMMANDS: Mutex<Vec<Command>> = Mutex::new(Vec::new());
 /// Set once the render thread is running; guards against a second spawn.
 static STARTED: OnceLock<()> = OnceLock::new();
 
-/// Cleared by the render thread once it has released the outgoing surface.
+/// Cleared by [`surface_destroyed`] before it posts, set by the render thread once it
+/// has handled that command.
 static SURFACE_RELEASED: AtomicBool = AtomicBool::new(true);
 
 /// Scale factor of the current surface (`f32` bits), for the platform-view hit test
@@ -95,7 +96,9 @@ enum Command {
         window: NativeWindow,
         scale: f32,
     },
-    SurfaceDestroyed,
+    SurfaceDestroyed {
+        window: usize,
+    },
     Resumed,
     Paused,
     /// Input arrives on the Java UI thread but GPUI may only be touched from the
@@ -219,12 +222,14 @@ fn render_thread(launch: Launch) {
                 Command::SurfaceCreated { window, scale } => {
                     on_surface_created(&platform, window, scale, &mut app);
                 }
-                Command::SurfaceDestroyed => {
-                    if let Some(win) = platform.primary_window() {
-                        // Keeps the renderer (and its atlas) alive; only the surface goes.
-                        win.term_window();
+                Command::SurfaceDestroyed { window } => {
+                    if CURRENT_SURFACE.load(Ordering::SeqCst) as usize == window {
+                        if let Some(win) = platform.primary_window() {
+                            // Keeps the renderer (and its atlas) alive; only the surface goes.
+                            win.term_window();
+                        }
+                        CURRENT_SURFACE.store(std::ptr::null_mut(), Ordering::SeqCst);
                     }
-                    CURRENT_SURFACE.store(std::ptr::null_mut(), Ordering::SeqCst);
                     SURFACE_RELEASED.store(true, Ordering::SeqCst);
                 }
                 Command::Resumed => {
@@ -288,8 +293,6 @@ fn on_surface_created(
     scale: f32,
     app: &mut HostApp,
 ) {
-    SURFACE_RELEASED.store(false, Ordering::SeqCst);
-
     let incoming = window.ptr().as_ptr();
     if CURRENT_SURFACE.load(Ordering::SeqCst) == incoming {
         // `surfaceChanged` for a surface we are already rendering into: the size may
@@ -352,8 +355,11 @@ pub fn surface_created(window: NativeWindow, scale: f32) {
 /// Call this from `SurfaceHolder.Callback.surfaceDestroyed` before returning to the
 /// framework, otherwise the `Surface` is torn down underneath a thread that may be
 /// inside `ANativeWindow_lock`.
-pub fn surface_destroyed() {
-    post(Command::SurfaceDestroyed);
+pub fn surface_destroyed(window: &NativeWindow) {
+    SURFACE_RELEASED.store(false, Ordering::SeqCst);
+    post(Command::SurfaceDestroyed {
+        window: window.ptr().as_ptr() as usize,
+    });
 
     // Bounded wait: a stuck render thread must not turn into an ANR. 2 s is far below
     // the 5 s input-dispatch timeout while being far above a worst-case frame.

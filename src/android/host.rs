@@ -298,7 +298,7 @@ fn on_surface_created(
         // `surfaceChanged` for a surface we are already rendering into: the size may
         // have changed, but the Vulkan surface must not be rebuilt.
         if let Some(existing) = platform.primary_window() {
-            existing.handle_resize();
+            existing.handle_resize(Some(scale));
         }
         return;
     }
@@ -310,6 +310,7 @@ fn on_surface_created(
         match existing.init_window(window, gpu) {
             Ok(()) => {
                 CURRENT_SURFACE.store(incoming, Ordering::SeqCst);
+                existing.handle_resize(Some(scale));
                 log::info!("gpui-main: surface re-attached to existing window");
                 // The Java `InputProxy` died with the old Activity while GPUI still
                 // considers the same field focused; ask the new Activity for the IME.

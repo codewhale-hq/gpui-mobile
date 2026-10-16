@@ -636,8 +636,9 @@ impl AndroidWindow {
         // seamlessly via init_window().
     }
 
-    /// Called when `APP_CMD_WINDOW_RESIZED` fires.
-    pub fn handle_resize(&self) {
+    /// Called when `APP_CMD_WINDOW_RESIZED` fires, and with the display's
+    /// current scale when the host reports one (a "Display size" change).
+    pub fn handle_resize(&self, scale: Option<f32>) {
         let (new_w, new_h, scale) = {
             let mut state = self.state.lock();
 
@@ -648,22 +649,29 @@ impl AndroidWindow {
 
             let new_w = nw.width();
             let new_h = nw.height();
+            let rescaled = scale
+                .filter(|scale| scale.is_finite() && *scale > 0.0 && *scale != state.scale_factor);
 
-            if new_w == state.width && new_h == state.height {
+            if new_w == state.width && new_h == state.height && rescaled.is_none() {
                 log::debug!("handle_resize: no change ({}×{})", new_w, new_h);
                 return;
             }
 
             log::info!(
-                "AndroidWindow resize: {}×{} → {}×{}",
+                "AndroidWindow resize: {}×{} @{} → {}×{} @{}",
                 state.width,
                 state.height,
+                state.scale_factor,
                 new_w,
-                new_h
+                new_h,
+                rescaled.unwrap_or(state.scale_factor)
             );
 
             state.width = new_w;
             state.height = new_h;
+            if let Some(rescaled) = rescaled {
+                state.scale_factor = rescaled;
+            }
             let scale = state.scale_factor;
 
             // update_drawable_size calls device.poll(Wait) which can take

@@ -230,7 +230,10 @@ fn font_has_cbdt_tables(data: &[u8]) -> bool {
 ///
 /// `path` is relative to the `assets/` directory in the APK (e.g.
 /// `"fonts/NotoColorEmoji.ttf"`).
-fn load_asset_bytes(asset_manager: &ndk::asset::AssetManager, path: &str) -> anyhow::Result<Vec<u8>> {
+fn load_asset_bytes(
+    asset_manager: &ndk::asset::AssetManager,
+    path: &str,
+) -> anyhow::Result<Vec<u8>> {
     use std::ffi::CString;
 
     let c_path = CString::new(path)?;

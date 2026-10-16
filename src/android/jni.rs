@@ -725,7 +725,7 @@ pub fn run_event_loop(app: &AndroidApp) {
                         }
 
                         // Trigger GPUI resize so layout adapts to new dimensions.
-                        existing.handle_resize();
+                        existing.handle_resize(None);
 
                         let cr = app.content_rect();
                         existing.update_safe_area_from_content_rect(
@@ -763,7 +763,7 @@ pub fn run_event_loop(app: &AndroidApp) {
             log::debug!("deferred: WindowResized");
             if let Some(platform) = PLATFORM.get() {
                 if let Some(win) = platform.primary_window() {
-                    win.handle_resize();
+                    win.handle_resize(None);
                     let cr = app.content_rect();
                     win.update_safe_area_from_content_rect(cr.left, cr.top, cr.right, cr.bottom);
                 }

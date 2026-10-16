@@ -949,7 +949,8 @@ impl AndroidPlatform {
     ///
     /// Useful in headless tests where there is no real ALooper.
     pub fn flush_main_thread_tasks(&self) {
-        self.state.lock().dispatcher.flush_main_thread_tasks();
+        let dispatcher = self.state.lock().dispatcher.clone();
+        dispatcher.flush_main_thread_tasks();
     }
 }
 

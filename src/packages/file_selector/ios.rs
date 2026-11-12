@@ -1,7 +1,7 @@
 use super::{OpenFileOptions, SaveFileOptions, SelectedFile, TypeGroup};
 use objc2::runtime::{AnyClass, AnyObject, ClassBuilder, Sel};
 use objc2::{class, msg_send, sel};
-use std::sync::{mpsc, Mutex, Once};
+use std::sync::{mpsc, Mutex, OnceLock};
 
 #[link(name = "UIKit", kind = "framework")]
 extern "C" {}
@@ -27,11 +27,10 @@ fn send_result(paths: Vec<String>) {
 
 // ── ObjC delegate class ─────────────────────────────────────────────────────
 
-static REGISTER_DELEGATE: Once = Once::new();
-static mut DELEGATE_CLASS: *const AnyClass = std::ptr::null();
+static DELEGATE_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
 
 fn delegate_class() -> &'static AnyClass {
-    REGISTER_DELEGATE.call_once(|| {
+    *DELEGATE_CLASS.get_or_init(|| {
         let superclass = class!(NSObject);
         let mut decl = ClassBuilder::new(c"GpuiDocumentPickerDelegate", superclass).unwrap();
 
@@ -49,9 +48,8 @@ fn delegate_class() -> &'static AnyClass {
             );
         }
 
-        unsafe { DELEGATE_CLASS = decl.register() as *const AnyClass };
-    });
-    unsafe { &*DELEGATE_CLASS }
+        decl.register()
+    })
 }
 
 unsafe extern "C" fn did_pick_documents(

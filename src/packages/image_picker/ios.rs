@@ -1,7 +1,7 @@
 use super::{CameraDevice, ImagePickerOptions, ImageSource, PickedFile};
 use objc2::runtime::{AnyClass, AnyObject, Bool, ClassBuilder, Sel};
 use objc2::{class, msg_send, sel};
-use std::sync::{mpsc, Mutex, Once};
+use std::sync::{mpsc, Mutex, OnceLock};
 
 #[link(name = "PhotosUI", kind = "framework")]
 extern "C" {}
@@ -30,11 +30,10 @@ fn send_result(paths: Vec<String>) {
 
 // ── PHPicker delegate (iOS 14+ gallery picker) ─────────────────────────────
 
-static REGISTER_PHPICKER_DELEGATE: Once = Once::new();
-static mut PHPICKER_DELEGATE_CLASS: *const AnyClass = std::ptr::null();
+static PHPICKER_DELEGATE_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
 
 fn phpicker_delegate_class() -> &'static AnyClass {
-    REGISTER_PHPICKER_DELEGATE.call_once(|| {
+    *PHPICKER_DELEGATE_CLASS.get_or_init(|| {
         let superclass = class!(NSObject);
         let mut decl = ClassBuilder::new(c"GpuiPHPickerDelegate", superclass).unwrap();
 
@@ -46,9 +45,8 @@ fn phpicker_delegate_class() -> &'static AnyClass {
             );
         }
 
-        unsafe { PHPICKER_DELEGATE_CLASS = decl.register() as *const AnyClass };
-    });
-    unsafe { &*PHPICKER_DELEGATE_CLASS }
+        decl.register()
+    })
 }
 
 extern "C" fn phpicker_did_finish(
@@ -131,11 +129,10 @@ extern "C" fn phpicker_did_finish(
 
 // ── UIImagePicker delegate (camera capture) ─────────────────────────────────
 
-static REGISTER_UIPICKER_DELEGATE: Once = Once::new();
-static mut UIPICKER_DELEGATE_CLASS: *const AnyClass = std::ptr::null();
+static UIPICKER_DELEGATE_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
 
 fn uipicker_delegate_class() -> &'static AnyClass {
-    REGISTER_UIPICKER_DELEGATE.call_once(|| {
+    *UIPICKER_DELEGATE_CLASS.get_or_init(|| {
         let superclass = class!(NSObject);
         let mut decl = ClassBuilder::new(c"GpuiUIImagePickerDelegate", superclass).unwrap();
 
@@ -151,9 +148,8 @@ fn uipicker_delegate_class() -> &'static AnyClass {
             );
         }
 
-        unsafe { UIPICKER_DELEGATE_CLASS = decl.register() as *const AnyClass };
-    });
-    unsafe { &*UIPICKER_DELEGATE_CLASS }
+        decl.register()
+    })
 }
 
 unsafe extern "C" fn uipicker_did_finish(

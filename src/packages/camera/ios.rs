@@ -5,7 +5,7 @@ use super::{
 use objc2::runtime::{AnyClass, AnyObject, Bool, ClassBuilder, Sel};
 use objc2::{class, msg_send, sel};
 use std::collections::HashMap;
-use std::sync::{mpsc, Mutex, Once};
+use std::sync::{mpsc, Mutex, OnceLock};
 
 #[link(name = "AVFoundation", kind = "framework")]
 extern "C" {}
@@ -60,11 +60,10 @@ pub fn get_session_ptr(id: usize) -> Option<*mut AnyObject> {
 
 static PHOTO_RESULT: Mutex<Option<mpsc::Sender<Result<CapturedImage, String>>>> = Mutex::new(None);
 
-static REGISTER_PHOTO_DELEGATE: Once = Once::new();
-static mut PHOTO_DELEGATE_CLASS: *const AnyClass = std::ptr::null();
+static PHOTO_DELEGATE_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
 
 fn photo_delegate_class() -> &'static AnyClass {
-    REGISTER_PHOTO_DELEGATE.call_once(|| {
+    *PHOTO_DELEGATE_CLASS.get_or_init(|| {
         let superclass = class!(NSObject);
         let mut decl = ClassBuilder::new(c"GpuiPhotoCaptureDelegate", superclass).unwrap();
 
@@ -83,9 +82,8 @@ fn photo_delegate_class() -> &'static AnyClass {
             );
         }
 
-        unsafe { PHOTO_DELEGATE_CLASS = decl.register() as *const AnyClass };
-    });
-    unsafe { &*PHOTO_DELEGATE_CLASS }
+        decl.register()
+    })
 }
 
 extern "C" fn photo_did_finish(
@@ -159,11 +157,10 @@ extern "C" {
 
 static VIDEO_RESULT: Mutex<Option<mpsc::Sender<Result<RecordedVideo, String>>>> = Mutex::new(None);
 
-static REGISTER_VIDEO_DELEGATE: Once = Once::new();
-static mut VIDEO_DELEGATE_CLASS: *const AnyClass = std::ptr::null();
+static VIDEO_DELEGATE_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
 
 fn video_delegate_class() -> &'static AnyClass {
-    REGISTER_VIDEO_DELEGATE.call_once(|| {
+    *VIDEO_DELEGATE_CLASS.get_or_init(|| {
         let superclass = class!(NSObject);
         let mut decl = ClassBuilder::new(c"GpuiVideoRecordingDelegate", superclass).unwrap();
 
@@ -183,9 +180,8 @@ fn video_delegate_class() -> &'static AnyClass {
             );
         }
 
-        unsafe { VIDEO_DELEGATE_CLASS = decl.register() as *const AnyClass };
-    });
-    unsafe { &*VIDEO_DELEGATE_CLASS }
+        decl.register()
+    })
 }
 
 extern "C" fn video_did_finish(

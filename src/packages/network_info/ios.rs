@@ -54,8 +54,7 @@ fn get_wifi_ip_address() -> Option<String> {
 
         let mut result = None;
         let mut current = ifaddr;
-        while !current.is_null() {
-            let ifa = &*current;
+        while let Some(ifa) = current.as_ref() {
             if !ifa.ifa_addr.is_null() {
                 let family = (*ifa.ifa_addr).sa_family as i32;
                 // AF_INET = 2 (IPv4)
